@@ -16,7 +16,7 @@ pub enum Endianess {
 trait Message {
     type M;
 
-    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<(), std::io::Error>;
+    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<usize, std::io::Error>;
     fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error>;
 
 }

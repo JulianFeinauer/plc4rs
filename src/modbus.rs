@@ -28,13 +28,13 @@ impl ModbusPDUWriteFileRecordResponseItem {
 impl Message for ModbusPDUWriteFileRecordResponseItem {
     type M = ModbusPDUWriteFileRecordResponseItem;
 
-    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<(), std::io::Error> {
-        writer.write_u8(self.reference_type)?;
-        writer.write_u16(self.file_number)?;
-        writer.write_u16(self.record_number)?;
-        writer.write_u16(self.record_length())?;
-        writer.write_bytes(&self.record_data)?;
-        Ok(())
+    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<usize, std::io::Error> {
+        let mut size = writer.write_u8(self.reference_type)?;
+        size += writer.write_u16(self.file_number)?;
+        size += writer.write_u16(self.record_number)?;
+        size += writer.write_u16(self.record_length())?;
+        size += writer.write_bytes(&self.record_data)?;
+        Ok(size)
     }
 
     fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error> {
