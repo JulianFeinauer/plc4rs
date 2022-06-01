@@ -1,5 +1,4 @@
-use std::io::Write;
-use std::marker::PhantomData;
+use std::io::{Read, Write};
 
 use crate::read_buffer::ReadBuffer;
 use crate::write_buffer::WriteBuffer;
@@ -9,19 +8,21 @@ mod modbus;
 mod read_buffer;
 
 #[allow(dead_code)]
-enum Endianess {
+pub enum Endianess {
     LittleEndian,
     BigEndian
 }
 
 trait Message {
+    type M;
 
-    fn serialize(&self, writer: &mut Box<dyn WriteBuffer>) -> Result<(), ()>;
-    fn deserialize(&self, reader: &mut Box<dyn ReadBuffer>) -> Box<dyn Message>;
+    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<(), std::io::Error>;
+    fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error>;
 
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)]
 mod tests {
 
 }
