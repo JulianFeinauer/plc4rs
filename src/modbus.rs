@@ -1,4 +1,5 @@
 use std::io::{Error, ErrorKind, Read, Write};
+use std::io::ErrorKind::InvalidInput;
 
 use crate::Message;
 use crate::read_buffer::ReadBuffer;
@@ -66,7 +67,7 @@ impl Message for DriverType {
         writer.write_u8((*self).into())
     }
 
-    fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, Error> {
+    fn deserialize<T: Read>(reader: &mut ReadBuffer<T>) -> Result<Self::M, Error> {
         let result = reader.read_u8()?;
         match DriverType::try_from(result) {
             Ok(result) => {
@@ -74,6 +75,94 @@ impl Message for DriverType {
             }
             Err(_) => {
                 Err(Error::new(ErrorKind::InvalidInput, format!("Cannot parse {}", result)))
+            }
+        }
+    }
+}
+
+// [discriminatedType ModbusADU(DriverType driverType, bit response) byteOrder='BIG_ENDIAN'
+//     [typeSwitch driverType
+//         ['MODBUS_TCP' ModbusTcpADU
+//             // It is used for transaction pairing, the MODBUS server copies in the response the transaction
+//             // identifier of the request.
+//             [simple         uint 16     transactionIdentifier]
+//
+//             // It is used for intra-system multiplexing. The MODBUS protocol is identified by the value 0.
+//             [const          uint 16     protocolIdentifier    0x0000]
+//             // The length field is a byte count of the following fields, including the Unit Identifier and
+//             // data fields.
+//             [implicit       uint 16     length                'pdu.lengthInBytes + 1']
+//
+//             // This field is used for intra-system routing purpose. It is typically used to communicate to
+//             // a MODBUS+ or a MODBUS serial line slave through a gateway between an Ethernet TCP-IP network
+//             // and a MODBUS serial line. This field is set by the MODBUS Client in the request and must be
+//             // returned with the same value in the response by the server.
+//             [simple         uint 8      unitIdentifier]
+//
+//             // The actual modbus payload
+//             [simple         ModbusPDU('response')   pdu]
+//         ]
+//         ['MODBUS_RTU' ModbusRtuADU
+//             [simple         uint 8                  address]
+//             // The actual modbus payload
+//             [simple         ModbusPDU('response')   pdu    ]
+//
+//             [checksum       uint 16                 crc     'STATIC_CALL("rtuCrcCheck", address, pdu)']
+//         ]
+//         ['MODBUS_ASCII' ModbusAsciiADU
+//             [simple         uint 8                  address]
+//
+//             // The actual modbus payload
+//             [simple         ModbusPDU('response')   pdu    ]
+//             [checksum       uint 8                  crc     'STATIC_CALL("asciiLrcCheck", address, pdu)']
+//         ]
+//     ]
+// ]
+
+//             // It is used for transaction pairing, the MODBUS server copies in the response the transaction
+//             // identifier of the request.
+//             [simple         uint 16     transactionIdentifier]
+//
+//             // It is used for intra-system multiplexing. The MODBUS protocol is identified by the value 0.
+//             [const          uint 16     protocolIdentifier    0x0000]
+//             // The length field is a byte count of the following fields, including the Unit Identifier and
+//             // data fields.
+//             [implicit       uint 16     length                'pdu.lengthInBytes + 1']
+//
+//             // This field is used for intra-system routing purpose. It is typically used to communicate to
+//             // a MODBUS+ or a MODBUS serial line slave through a gateway between an Ethernet TCP-IP network
+//             // and a MODBUS serial line. This field is set by the MODBUS Client in the request and must be
+//             // returned with the same value in the response by the server.
+//             [simple         uint 8      unitIdentifier]
+//
+//             // The actual modbus payload
+//             [simple         ModbusPDU('response')   pdu]
+struct ModbusTcpADU {
+    transaction_identifier: u16,
+    protocol_identifier: u16,
+
+}
+
+struct ModbusADU {
+    driver_type: DriverType,
+    bit_response: bool
+}
+
+impl Message for ModbusADU {
+    type M = ModbusADU;
+
+    fn serialize<T: Write>(&self, writer: &mut WriteBuffer<T>) -> Result<usize, Error> {
+        todo!()
+    }
+
+    fn deserialize<T: Read>(reader: &mut ReadBuffer<T>) -> Result<Self::M, Error> {
+        let driver_type = DriverType::deserialize(reader)?;
+        let bit_response = reader.read_bit()?;
+
+        // Now the switch begins
+        match (driver_type, bit_response) {
+            (_, _) => {
+                Err(Error::new(InvalidInput, format!("Unable to deserialize from {:?}, {:?}", driver_type, bit_response)))
             }
         }
     }
@@ -104,7 +193,7 @@ impl Message for ModbusPDUReadFileRecordRequestItem {
         Ok(size)
     }
 
-    fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error> {
+    fn deserialize<T: Read>(reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error> {
         let reference_type = reader.read_u8()?;
         let file_number = reader.read_u16()?;
         let record_number = reader.read_u16()?;
@@ -152,7 +241,7 @@ impl Message for ModbusPDUWriteFileRecordResponseItem {
         Ok(size)
     }
 
-    fn deserialize<T: Read>(&self, reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error> {
+    fn deserialize<T: Read>(reader: &mut ReadBuffer<T>) -> Result<Self::M, std::io::Error> {
         let reference_type = reader.read_u8()?;
         let file_number = reader.read_u16()?;
         let record_number = reader.read_u16()?;
@@ -197,7 +286,7 @@ mod test {
         let bytes = writer.writer.clone();
         let mut reader = ReadBuffer::new(Endianess::BigEndian, &*bytes);
 
-        if let Ok(msg) = message.deserialize(&mut reader) {
+        if let Ok(msg) = ModbusPDUWriteFileRecordResponseItem::deserialize(&mut reader) {
             assert_eq!(message, msg);
         } else {
             assert!(false);

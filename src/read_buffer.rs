@@ -20,6 +20,10 @@ impl<T: Read> ReadBuffer<T> {
 
 impl<T: Read> ReadBuffer<T> {
 
+    pub(crate) fn read_bit(&self) -> Result<bool, std::io::Error> {
+        todo!()
+    }
+
     pub(crate) fn read_u8(&mut self) -> Result<u8, std::io::Error> {
         let mut byte = [0_u8; 1];
         self.reader.read(&mut byte)?;
